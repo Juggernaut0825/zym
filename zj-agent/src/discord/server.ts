@@ -107,15 +107,21 @@ async function sendMessageToDiscord(
   content: string,
 ): Promise<void> {
   const axios = require('axios');
-  const url = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`;
+  const url = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}?wait=true`;
 
   try {
     const chunks = splitMessage(content, 1900);
     for (let i = 0; i < chunks.length; i++) {
-      await axios.post(url, { content: chunks[i] });
+      Logger.info(`发送消息到 Discord: ${url.substring(0, 60)}...`);
+      const response = await axios.post(url, { content: chunks[i] });
+      Logger.info(`Discord 响应: ${response.status}`);
     }
   } catch (error: any) {
     Logger.error(`Discord 消息发送失败: ${error.message}`);
+    if (error.response) {
+      Logger.error(`状态码: ${error.response.status}`);
+      Logger.error(`响应: ${JSON.stringify(error.response.data)}`);
+    }
   }
 }
 

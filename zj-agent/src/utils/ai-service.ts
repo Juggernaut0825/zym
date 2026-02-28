@@ -30,7 +30,7 @@ export class AIService {
     }
 
     this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
-    this.model = process.env.GAUZ_LLM_MODEL || 'google/gemini-2.0-flash-exp:free';
+    this.model = process.env.GAUZ_LLM_MODEL || 'google/gemini-3-flash-preview';
   }
 
   async chat(messages: Message[], tools: ToolDefinition[]): Promise<AIResponse> {
