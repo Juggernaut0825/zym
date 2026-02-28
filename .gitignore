@@ -58,3 +58,4 @@ venv/
 # Lock files (optional - uncomment if you want to exclude)
 # package-lock.json
 # yarn.lock
+register-commands.js
