@@ -113,9 +113,8 @@ async function main() {
   program
     .command('discord')
     .description('启动 Discord 机器人')
-    .option('-p, --port <port>', 'HTTP 端口', '3000')
-    .action(async (options) => {
-      await startDiscordServer(parseInt(options.port));
+    .action(async () => {
+      await startDiscordServer();
     });
 
   // 默认进入聊天模式

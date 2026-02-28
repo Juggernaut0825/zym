@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Message, ToolDefinition, ToolCall } from '../types';
+import { Message, MessageContent, ToolDefinition, ToolCall } from '../types';
 
 export interface StreamCallbacks {
   onText?: (text: string) => void;
@@ -39,7 +39,7 @@ export class AIService {
 
     const response = await axios.post(this.baseUrl, {
       model: this.model,
-      messages: this.convertMessages(otherMessages, systemMessage?.content),
+      messages: this.convertMessages(otherMessages, systemMessage?.content as string | undefined),
       tools: tools.length > 0 ? tools.map(t => ({
         type: 'function',
         function: {
@@ -73,7 +73,7 @@ export class AIService {
     // 如果需要真正的流式，需要使用 fetch + ReadableStream
     const response = await axios.post(this.baseUrl, {
       model: this.model,
-      messages: this.convertMessages(otherMessages, systemMessage?.content),
+      messages: this.convertMessages(otherMessages, systemMessage?.content as string | undefined),
       tools: tools.length > 0 ? tools.map(t => ({
         type: 'function',
         function: {
