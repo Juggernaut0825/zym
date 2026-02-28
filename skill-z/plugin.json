@@ -1,0 +1,6 @@
+{
+  "name": "skill-z",
+  "version": "0.1.0",
+  "description": "Z - 智能健身和生活追踪助手 Skill",
+  "skills": ["skills/z"]
+}

@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+dist/
+
+# Reference projects (not part of this repo)
+XiaoBa-CLI/
+skill-coachx/
+
+# Environment files (contains API keys)
+.env
+.env.local
+.env.*.local
+*.env
+
+# User data (contains personal info)
+skill-z/skills/z/data/
+skill-z/data/
+data/
+
+# Keys and secrets
+*.pem
+*.key
+*.p12
+secrets/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Build
+*.tsbuildinfo
+
+# Temp files
+*.tmp
+*.temp
+.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+venv/
+.venv/
+
+# Lock files (optional - uncomment if you want to exclude)
+# package-lock.json
+# yarn.lock
