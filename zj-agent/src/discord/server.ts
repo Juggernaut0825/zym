@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Partials, Message as DiscordMessage } from 'discord.js';
 import axios from 'axios';
-import sharp from 'sharp';
+// @ts-ignore
+import heicConvert from 'heic-convert';
 import { AIService } from '../utils/ai-service';
 import { ToolManager } from '../tools/tool-manager';
 import { ConversationRunner } from '../core/conversation-runner';
@@ -15,13 +16,15 @@ const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/g
 const CONVERTIBLE_IMAGE_TYPES = ['image/heic', 'image/heif'];
 const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/mpeg'];
 
-/** 下载 HEIC/HEIF 并用 sharp 转成 JPEG base64 data URL */
+/** 下载 HEIC/HEIF 并用 heic-convert 转成 JPEG base64 data URL */
 async function convertToJpegDataUrl(url: string): Promise<string> {
   const resp = await axios.get(url, { responseType: 'arraybuffer' });
-  const jpegBuffer = await sharp(Buffer.from(resp.data))
-    .jpeg({ quality: 85 })
-    .toBuffer();
-  const base64 = jpegBuffer.toString('base64');
+  const jpegBuffer = await heicConvert({
+    buffer: Buffer.from(resp.data),
+    format: 'JPEG',
+    quality: 0.85,
+  });
+  const base64 = Buffer.from(jpegBuffer).toString('base64');
   return `data:image/jpeg;base64,${base64}`;
 }
 
