@@ -142,12 +142,29 @@ export class AIService {
       } else {
         result.push({
           role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content || '',
+          content: this.convertContent(msg.content),
         });
       }
     }
 
     return result;
+  }
+
+  /** 将 MessageContent 转为 OpenRouter API 格式 */
+  private convertContent(content: MessageContent | undefined): string | any[] {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+
+    return content.map(part => {
+      if (part.type === 'text') {
+        return { type: 'text', text: part.text };
+      } else if (part.type === 'image_url') {
+        return { type: 'image_url', image_url: { url: part.image_url.url } };
+      } else if (part.type === 'video_url') {
+        return { type: 'video_url', video_url: { url: part.video_url.url } };
+      }
+      return { type: 'text', text: '' };
+    });
   }
 
   private parseResponse(data: any): AIResponse {

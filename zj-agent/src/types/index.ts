@@ -8,7 +8,12 @@ export interface ImageContentPart {
   image_url: { url: string };
 }
 
-export type ContentPart = TextContentPart | ImageContentPart;
+export interface VideoContentPart {
+  type: 'video_url';
+  video_url: { url: string };
+}
+
+export type ContentPart = TextContentPart | ImageContentPart | VideoContentPart;
 export type MessageContent = string | ContentPart[];
 
 export interface Message {

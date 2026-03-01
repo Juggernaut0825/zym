@@ -1,4 +1,6 @@
 import { Client, GatewayIntentBits, Partials, Message as DiscordMessage } from 'discord.js';
+import axios from 'axios';
+import sharp from 'sharp';
 import { AIService } from '../utils/ai-service';
 import { ToolManager } from '../tools/tool-manager';
 import { ConversationRunner } from '../core/conversation-runner';
@@ -7,6 +9,21 @@ import { Logger } from '../utils/logger';
 
 // 会话存储
 const sessions = new Map<string, Message[]>();
+
+// 支持的格式
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const CONVERTIBLE_IMAGE_TYPES = ['image/heic', 'image/heif'];
+const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/mpeg'];
+
+/** 下载 HEIC/HEIF 并用 sharp 转成 JPEG base64 data URL */
+async function convertToJpegDataUrl(url: string): Promise<string> {
+  const resp = await axios.get(url, { responseType: 'arraybuffer' });
+  const jpegBuffer = await sharp(Buffer.from(resp.data))
+    .jpeg({ quality: 85 })
+    .toBuffer();
+  const base64 = jpegBuffer.toString('base64');
+  return `data:image/jpeg;base64,${base64}`;
+}
 
 function splitMessage(content: string, maxLength: number): string[] {
   if (content.length <= maxLength) return [content];
@@ -61,22 +78,53 @@ export async function startDiscordServer(): Promise<void> {
     const userId = msg.author.id;
     const username = msg.author.globalName || msg.author.username;
 
-    // 构建消息内容：文字 + 图片附件
+    // 构建消息内容：文字 + 图片（含 HEIC 转换）+ 视频
     const textContent = msg.content.replace(/<@!?\d+>/g, '').trim();
-    const imageAttachments = [...msg.attachments.values()].filter(
-      a => a.contentType?.startsWith('image/')
+    const allAttachments = [...msg.attachments.values()];
+
+    // 分类附件
+    const directImages = allAttachments.filter(
+      a => a.contentType != null && SUPPORTED_IMAGE_TYPES.includes(a.contentType)
+    );
+    const convertibleImages = allAttachments.filter(
+      a => a.contentType != null && CONVERTIBLE_IMAGE_TYPES.includes(a.contentType)
+    );
+    const videoAttachments = allAttachments.filter(
+      a => a.contentType != null && SUPPORTED_VIDEO_TYPES.includes(a.contentType)
     );
 
+    const hasMedia = directImages.length > 0 || convertibleImages.length > 0 || videoAttachments.length > 0;
+
     let content: string | ContentPart[];
-    if (imageAttachments.length > 0) {
+    if (hasMedia) {
       const parts: ContentPart[] = [];
       if (textContent) {
         parts.push({ type: 'text', text: textContent });
       }
-      for (const att of imageAttachments) {
+
+      // 直接支持的图片
+      for (const att of directImages) {
         parts.push({ type: 'image_url', image_url: { url: att.url } });
       }
-      content = parts;
+
+      // HEIC/HEIF → JPEG 转换
+      for (const att of convertibleImages) {
+        try {
+          Logger.info(`转换 ${att.name} (HEIC→JPEG)...`);
+          const dataUrl = await convertToJpegDataUrl(att.url);
+          parts.push({ type: 'image_url', image_url: { url: dataUrl } });
+        } catch (err: any) {
+          Logger.error(`HEIC 转换失败 (${att.name}): ${err.message}`);
+          await msg.reply(`图片 ${att.name} 转换失败，请尝试发 JPG/PNG 格式`).catch(() => {});
+        }
+      }
+
+      // 视频附件
+      for (const att of videoAttachments) {
+        parts.push({ type: 'video_url', video_url: { url: att.url } });
+      }
+
+      content = parts.length > 0 ? parts : (textContent || 'hello');
     } else {
       content = textContent || 'hello';
     }
@@ -86,13 +134,14 @@ export async function startDiscordServer(): Promise<void> {
     let messages = sessions.get(userId) || [];
     messages.push({ role: 'user', content });
 
+    let typingInterval: ReturnType<typeof setInterval> | undefined;
     try {
       // 显示"正在输入"
       const channel = msg.channel;
       if ('sendTyping' in channel) {
         await channel.sendTyping();
       }
-      const typingInterval = setInterval(() => {
+      typingInterval = setInterval(() => {
         if ('sendTyping' in channel) {
           channel.sendTyping().catch(() => {});
         }
@@ -113,6 +162,7 @@ export async function startDiscordServer(): Promise<void> {
       }
       Logger.info(`[${username}] 回复已发送`);
     } catch (error: any) {
+      if (typingInterval) clearInterval(typingInterval);
       Logger.error(`处理失败: ${error.message}`);
       await msg.reply(`抱歉，处理你的请求时出错：${error.message}`).catch(() => {});
     }
