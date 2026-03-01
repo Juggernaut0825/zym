@@ -44,6 +44,38 @@ function splitMessage(content: string, maxLength: number): string[] {
   return chunks;
 }
 
+function summarizeContentForSession(content: Message['content']): Message['content'] {
+  if (!content || typeof content === 'string') {
+    return content;
+  }
+
+  const lines = content
+    .filter((part): part is Extract<ContentPart, { type: 'text' }> => part.type === 'text')
+    .map(part => part.text.trim())
+    .filter(Boolean);
+  const imageCount = content.filter(part => part.type === 'image_url').length;
+  const videoCount = content.filter(part => part.type === 'video_url').length;
+
+  if (imageCount > 0) {
+    lines.push(`[用户发送了 ${imageCount} 张图片]`);
+  }
+  if (videoCount > 0) {
+    lines.push(`[用户发送了 ${videoCount} 个视频]`);
+  }
+
+  return lines.join('\n') || '[用户发送了媒体附件]';
+}
+
+/** 将媒体消息转成可长期保留的文本摘要，避免坏 URL 或大块 base64 污染后续上下文 */
+function sanitizeMessagesForSession(messages: Message[]): Message[] {
+  return messages.map(msg => {
+    return {
+      ...msg,
+      content: summarizeContentForSession(msg.content),
+    };
+  });
+}
+
 export async function startDiscordServer(): Promise<void> {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) {
@@ -132,7 +164,7 @@ export async function startDiscordServer(): Promise<void> {
       content = textContent || 'hello';
     }
 
-    Logger.info(`[${username}] ${textContent || '(image)'}`);
+    Logger.info(`[${username}] ${textContent || (hasMedia ? '(media)' : 'hello')}`);
 
     let messages = sessions.get(userId) || [];
     messages.push({ role: 'user', content });
@@ -157,7 +189,7 @@ export async function startDiscordServer(): Promise<void> {
 
       clearInterval(typingInterval);
       messages = result.messages;
-      sessions.set(userId, messages);
+      sessions.set(userId, sanitizeMessagesForSession(messages));
 
       const responseText = result.response || '（处理完成，但没有生成回复）';
       const chunks = splitMessage(responseText, 1900);

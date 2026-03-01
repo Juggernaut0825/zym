@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Message, MessageContent, ToolDefinition, ToolCall } from '../types';
+import { Logger } from './logger';
 
 export interface StreamCallbacks {
   onText?: (text: string) => void;
@@ -167,12 +168,17 @@ export class AIService {
   private parseResponse(data: any): AIResponse {
     const choice = data.choices?.[0];
     if (!choice) {
+      Logger.warning(`API 返回无 choices（keys: ${Object.keys(data || {}).join(', ') || 'none'}）`);
       return { content: '' };
     }
 
     const message = choice.message;
-    let content = message?.content || '';
+    const content = this.normalizeTextContent(message?.content);
     const toolCalls: ToolCall[] = [];
+
+    if (!content && !message?.tool_calls) {
+      Logger.warning(`API 返回空消息 (finish_reason=${choice.finish_reason || 'unknown'})`);
+    }
 
     // 检查是否有工具调用
     if (message?.tool_calls && Array.isArray(message.tool_calls)) {
@@ -201,5 +207,29 @@ export class AIService {
         totalTokens: data.usage.total_tokens || 0,
       } : undefined,
     };
+  }
+
+  private normalizeTextContent(content: unknown): string {
+    if (typeof content === 'string') {
+      return content;
+    }
+
+    if (Array.isArray(content)) {
+      return content
+        .map(part => {
+          if (typeof part === 'string') {
+            return part;
+          }
+
+          if (part && typeof part === 'object' && 'text' in part && typeof part.text === 'string') {
+            return part.text;
+          }
+
+          return '';
+        })
+        .join('');
+    }
+
+    return '';
   }
 }

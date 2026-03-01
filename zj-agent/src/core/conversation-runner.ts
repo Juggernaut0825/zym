@@ -80,8 +80,46 @@ export class ConversationRunner {
 
       // 没有工具调用，返回最终回复
       if (!response.toolCalls || response.toolCalls.length === 0) {
+        let finalContent = response.content || '';
+
+        if (this.isBlank(finalContent)) {
+          Logger.warning(`[Turn ${turns}] AI 返回空内容且无工具调用，尝试补发一次无工具回复`);
+          const retryResponse = await this.aiService.chatStream(
+            [
+              ...messages,
+              {
+                role: 'user',
+                content: '请直接基于上文给用户一个自然语言回复。不要调用工具，也不要留空。',
+              },
+            ],
+            [],
+            {
+              onText: callbacks?.onText,
+            },
+          );
+
+          if (retryResponse.usage) {
+            Logger.info(`[Turn ${turns}] 空回复重试 Tokens: ${retryResponse.usage.promptTokens}+${retryResponse.usage.completionTokens}`);
+          }
+
+          finalContent = retryResponse.content || '';
+        }
+
+        if (this.isBlank(finalContent)) {
+          Logger.warning(`[Turn ${turns}] 空回复重试后仍无内容`);
+          return {
+            response: '',
+            messages,
+          };
+        }
+
+        messages.push({
+          role: 'assistant',
+          content: finalContent,
+        });
+
         return {
-          response: response.content || '',
+          response: finalContent,
           messages,
         };
       }
@@ -120,5 +158,9 @@ export class ConversationRunner {
       response: '[达到最大轮次，请继续对话]',
       messages,
     };
+  }
+
+  private isBlank(content: string | undefined): boolean {
+    return !content || content.trim().length === 0;
   }
 }
