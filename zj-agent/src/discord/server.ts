@@ -159,7 +159,8 @@ export async function startDiscordServer(): Promise<void> {
       messages = result.messages;
       sessions.set(userId, messages);
 
-      const chunks = splitMessage(result.response, 1900);
+      const responseText = result.response || '（处理完成，但没有生成回复）';
+      const chunks = splitMessage(responseText, 1900);
       for (const chunk of chunks) {
         await msg.reply(chunk);
       }
