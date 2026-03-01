@@ -116,28 +116,25 @@ export class AIService {
 
     for (const msg of messages) {
       if (msg.role === 'tool') {
-        // 工具结果作为 user 消息
+        // 原生 tool result 格式
         result.push({
-          role: 'user',
-          content: `[Tool Result: ${msg.name}]\n${msg.content || ''}`,
-        });
-
-        // 添加提示让模型继续
-        result.push({
-          role: 'assistant',
-          content: '我已收到工具执行结果，继续处理...',
+          role: 'tool',
+          tool_call_id: msg.tool_call_id,
+          content: msg.content || '',
         });
       } else if (msg.role === 'assistant' && msg.tool_calls) {
-        // 带工具调用的助手消息
-        const content = msg.content || '';
-        const toolCallsDesc = msg.tool_calls.map(tc => {
-          const args = JSON.parse(tc.function.arguments);
-          return `[Calling tool: ${tc.function.name}]\n${JSON.stringify(args, null, 2)}`;
-        }).join('\n\n');
-
+        // 原生 assistant + tool_calls 格式
         result.push({
           role: 'assistant',
-          content: content ? `${content}\n\n${toolCallsDesc}` : toolCallsDesc,
+          content: msg.content || '',
+          tool_calls: msg.tool_calls.map(tc => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.function.name,
+              arguments: tc.function.arguments,
+            },
+          })),
         });
       } else {
         result.push({
